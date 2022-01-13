@@ -72,6 +72,10 @@ impl Guesser {
         })
     }
 
+    // fn get_confidence(&self) -> usize {
+    //     self.must_contain.len() * 10 + self.must_not_contain.len() * 5 + self.exact * 20 + self.not_exact * 2;
+    // }
+
     fn get_options(&self) -> Vec<&str> {
         self.dict.iter()
             .map(|s| &s[..])
@@ -124,14 +128,21 @@ fn main() {
     let mut guesser = Guesser::new(dict);
 
     for _ in 0..6 {
-        println!("Your most likley options are     : {:?}", guesser.get_most_likley());
+        let likley = guesser.get_most_likley();
+
+        if likley.len() == 1 {
+            println!("\n\nWell done, the answer is: {}", likley.iter().next().unwrap());
+            return;
+        }
+
+        println!("Your most likley options are     : {:?}", likley);
         println!("These will give you the most info: {:?}", guesser.get_most_info());
 
         println!("What word did you enter?");
         let mut word = String::new();
         io::stdin().read_line(&mut word).unwrap();
 
-        println!("What colours did you see \n G = Green\nX = Grey\nA = Amber\ne.g XGXXA:");
+        println!("What colours did you see \nG = Green\nX = Grey\nA = Amber\ne.g XGXXA:");
         let mut answer_input = String::new();
         io::stdin().read_line(&mut answer_input).unwrap();
 
@@ -155,6 +166,12 @@ fn main() {
             .collect::<Vec<Colours>>()
             .try_into()
             .unwrap();
+
+        if answers.iter().all(|c| c == &Colours::Green) {
+            println!("\n\nNice one!!!! we've figured it out");
+            return;
+        }
+
 
         guesser.guess(word, answers);
     }
