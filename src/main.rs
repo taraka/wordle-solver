@@ -20,7 +20,7 @@ struct Guesser{
 impl Guesser {
     fn new(dict: Vec<String>) -> Self {
         Self {
-            dict: dict,
+            dict: dict.into_iter().filter(|s| s.len() == 5).filter(|s| s == &s.to_lowercase()).collect(),
             must_contain: HashSet::new(),
             must_not_contain: HashSet::new(),
             exact: Vec::new(),
@@ -28,11 +28,24 @@ impl Guesser {
         }
     }
 
+
+    fn get_most_info(&self) -> Vec<&str> {
+        let frequencies = self.get_dict_frequencies();
+        let scores = self.dict.iter().map(|s| &s[..]).fold(HashMap::new(), |mut map, word| {
+            map.insert(word, self.word_info_score(&word, &frequencies));
+            map
+        });
+
+        let mut best_score: Vec<(&str, usize)> = scores.iter().map(|v| (*v.0, *v.1)).collect();
+        best_score.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        best_score.iter().map(|(s, _)| *s).take(10).collect()
+    }
+
     fn get_most_likley(&self) -> Vec<&str> {
         let frequencies = self.get_frequencies();
         let options = self.get_options();
         let scores = options.iter().fold(HashMap::new(), |mut map, word| {
-            map.insert(word, Self::word_score(&word, &frequencies));
+            map.insert(word, self.word_score(&word, &frequencies));
             map
         });
 
@@ -50,9 +63,17 @@ impl Guesser {
         })
     }
 
+    fn get_dict_frequencies(&self) -> HashMap<char, usize> {
+        self.dict.iter().fold(HashMap::new(), |mut map, word| {
+            for c in word.chars() {
+                *map.entry(c).or_insert(0) += 1;
+            }
+            map
+        })
+    }
+
     fn get_options(&self) -> Vec<&str> {
         self.dict.iter()
-            .filter(|s| s.len() == 5)
             .map(|s| &s[..])
             .filter(|w| self.must_contain.iter().all(|c| w.contains(c)))
             .filter(|w| !self.must_not_contain.iter().any(|c| w.contains(c)))
@@ -75,11 +96,20 @@ impl Guesser {
         }
     }
 
-    fn word_score(word: &str, frequencies: &HashMap<char, usize>) -> usize {
+    fn word_score(&self, word: &str, frequencies: &HashMap<char, usize>) -> usize {
         let uniq_chars: HashSet<char> = word.chars().collect();
         uniq_chars
             .iter()
             .fold(0, |sum, c| sum + frequencies.get(c).unwrap())
+    }
+
+    fn word_info_score(&self, word: &str, frequencies: &HashMap<char, usize>) -> usize {
+        let uniq_chars: HashSet<char> = word.chars().collect();
+        uniq_chars
+            .iter()
+            .fold(0, |sum, c| if !self.must_contain.contains(&c.to_string()) && !self.must_not_contain.contains(&c.to_string()) {
+                sum + frequencies.get(c).unwrap()
+            } else { sum })
     }
 }
 
@@ -88,14 +118,14 @@ fn main() {
     let dict: Vec<String> = io::BufReader::new(file)
         .lines()
         .filter_map(|s| s.ok())
-        .filter(|s| s == &s.to_lowercase())
         .collect();
 
 
     let mut guesser = Guesser::new(dict);
 
     for _ in 0..6 {
-        println!("Your most likley options are: {:?}", guesser.get_most_likley());
+        println!("Your most likley options are     : {:?}", guesser.get_most_likley());
+        println!("These will give you the most info: {:?}", guesser.get_most_info());
 
         println!("What word did you enter?");
         let mut word = String::new();
